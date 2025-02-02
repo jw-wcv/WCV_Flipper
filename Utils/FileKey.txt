@@ -1,0 +1,21 @@
+REM Title: File Decryption
+REM Author: Narsty (modified by you)
+REM Target: MacOS
+REM Version: 1.0
+REM Category: Obscurity
+
+DELAY 500
+GUI space
+DELAY 500
+STRING terminal
+DELAY 1000
+ENTER
+DELAY 500
+STRING openssl enc -aes-256-cbc -d -in ~/Desktop/ENCRYPTED.enc -out ~/Desktop/fileToEncrypt.txt -pass pass:S3cur3P@ssw0rd!
+ENTER
+DELAY 500
+STRING rm ~/Desktop/ENCRYPTED.enc
+DELAY 1000
+ENTER
+DELAY 250
+GUI w

