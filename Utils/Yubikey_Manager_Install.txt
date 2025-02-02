@@ -1,0 +1,33 @@
+REM BadUSB Script for macOS - Clone and Set Up YubiKey Manager
+
+DELAY 1000
+GUI SPACE
+DELAY 500
+STRING terminal
+DELAY 500
+ENTER
+DELAY 1000
+
+REM Navigate to Home Directory
+STRING cd ~
+ENTER
+
+REM Ensure Git is installed
+STRING if ! command -v git > /dev/null; then echo "Git not found. Installing..."; brew install git; fi
+ENTER
+DELAY 500
+
+REM Clone YubiKey Manager Repo
+STRING git clone https://github.com/jw-wcv/yubikey-manager.git ~/.yubikey-manager
+ENTER
+DELAY 1000
+
+REM Apply YubiKey Manager Configuration
+STRING cd ~/.yubikey-manager
+ENTER
+STRING chmod +x install.sh && ./install.sh
+ENTER
+
+REM Notify user
+STRING echo "YubiKey Manager installed successfully!"
+ENTER

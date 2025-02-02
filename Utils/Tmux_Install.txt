@@ -1,0 +1,33 @@
+REM BadUSB Script for macOS - Clone and Set Up Tmux Config
+
+DELAY 1000
+GUI SPACE
+DELAY 500
+STRING terminal
+DELAY 500
+ENTER
+DELAY 1000
+
+REM Navigate to Home Directory
+STRING cd ~
+ENTER
+
+REM Ensure Git is installed
+STRING if ! command -v git > /dev/null; then echo "Git not found. Installing..."; brew install git; fi
+ENTER
+DELAY 500
+
+REM Clone Tmux Config Repo
+STRING git clone https://github.com/jw-wcv/tmux.git ~/.tmux-config
+ENTER
+DELAY 1000
+
+REM Apply Tmux Config
+STRING cd ~/.tmux-config
+ENTER
+STRING chmod +x install.sh && ./install.sh
+ENTER
+
+REM Notify user
+STRING echo "Tmux configuration applied successfully!"
+ENTER

