@@ -1,4 +1,4 @@
-REM BadUSB Script for macOS - Clone and Set Up Tmux Config
+REM BadUSB Script for macOS - Clone and Set Up Tmux Config with Overwrite Prompt
 
 DELAY 1000
 GUI SPACE
@@ -17,17 +17,42 @@ STRING if ! command -v git > /dev/null; then echo "Git not found. Installing..."
 ENTER
 DELAY 500
 
-REM Clone Tmux Config Repo
-STRING git clone https://github.com/jw-wcv/tmux.git ~/.tmux-config
+REM Check if ~/.tmux-config directory exists
+STRING if [ -d ~/.tmux-config ]; then
 ENTER
-DELAY 1000
+STRING   read -p "tmux directory exists. Overwrite? (y/n): " answer
+ENTER
+STRING   if [ "$answer" = "y" ]; then
+ENTER
+STRING     mv ~/.tmux-config ~/.tmux-config_backup_$(date +%Y%m%d%H%M%S)
+ENTER
+STRING     git clone https://github.com/jw-wcv/tmux.git 
+ENTER       
+STRING     ls 
+ENTER
+STRING   else
+ENTER
+STRING     echo "Keeping existing tmux directory."
+ENTER
+STRING     ls 
+ENTER
+STRING   fi
+ENTER
+STRING else
+ENTER
+STRING   git clone https://github.com/jw-wcv/tmux.git
+ENTER
+STRING fi
+ENTER
 
-REM Apply Tmux Config
-STRING cd ~/.tmux-config
-ENTER
-STRING chmod +x install.sh && ./install.sh
+REM Change directory into the cloned (or existing) repository
+STRING cd ~/tmux
 ENTER
 
-REM Notify user
+REM Execute the configuration script (e.g. config_tmux.sh)
+STRING ./config_tmux.sh
+ENTER
+
+REM Notify user of successful tmux configuration
 STRING echo "Tmux configuration applied successfully!"
 ENTER
