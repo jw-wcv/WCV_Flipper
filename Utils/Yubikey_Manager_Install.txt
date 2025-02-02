@@ -17,15 +17,36 @@ STRING if ! command -v git > /dev/null; then echo "Git not found. Installing..."
 ENTER
 DELAY 500
 
-REM Clone YubiKey Manager Repo
-STRING git clone https://github.com/jw-wcv/yubikey-manager.git ~/.yubikey-manager
+REM Check if the ~/.yubikey-manager directory exists
+STRING if [ -d ~/.yubikey-manager ]; then
 ENTER
-DELAY 1000
+STRING   read -p "yubikey-manager directory exists. Overwrite? (y/n): " answer
+ENTER
+STRING   if [ "$answer" = "y" ]; then
+ENTER
+STRING     mv ~/.yubikey-manager ~/.yubikey-manager_backup_$(date +%Y%m%d%H%M%S)
+ENTER
+STRING     git clone https://github.com/jw-wcv/yubikey-manager.git
+ENTER
+STRING   else
+ENTER
+STRING     echo "Keeping existing yubikey-manager directory."
+ENTER
+STRING   fi
+ENTER
+STRING else
+ENTER
+STRING   git clone https://github.com/jw-wcv/yubikey-manager.git 
+ENTER
+STRING fi
+ENTER
 
-REM Apply YubiKey Manager Configuration
-STRING cd ~/.yubikey-manager
+REM Change directory into the repository
+STRING cd ~/yubikey-manager
 ENTER
-STRING chmod +x install.sh && ./install.sh
+
+REM Make the key_manager.sh script executable and run it
+STRING chmod +x key_manager.sh && ./key_manager.sh
 ENTER
 
 REM Notify user
